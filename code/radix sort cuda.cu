@@ -6,14 +6,16 @@ int numBlocks = 512;
 //Declaration for partition sort
 __device__ void partition_by_bit(unsigned int *values, unsigned int bit);
 
-__device__ void radix_sort(unsigned int *values)
+__global__ void radix_sort(unsigned int *values)
 {
+    //print("")
     int  bit;
     for( bit = 0; bit < 32; ++bit )
     {
         partition_by_bit(values, bit);
         __syncthreads();
     }
+    //printf("654444  %d\n",values);
 }
 
 template<class T>
@@ -87,6 +89,8 @@ __device__ void partition_by_bit(unsigned int *values, unsigned int bit)
     else
         values[i - T_before] = x_i;
 
+
+
 }
 
 int main(){
@@ -100,19 +104,19 @@ int main(){
 	valueArray[2] = 8;
 	valueArray[3] = 4;
 
-	unsigned int dArray = NULL;
-	cudaMalloc((unsigned int)%dArray,sizeof(unsigned int) * numElements);
+	unsigned int * dArray = NULL;
+	cudaMalloc((void **)&dArray,sizeof(unsigned int) * numElements);
 
-	cudaMemcpy(dArray,valueArray,sizeof(unsigned int) * numElements, CudaMemcpyHostToDevice);
+	cudaMemcpy(dArray,&valueArray,sizeof(unsigned int) * numElements, cudaMemcpyHostToDevice);
 
 	radix_sort<<<numBlocks, blockSize>>>(dArray);
 
-	cudaMemcpy(valueArray,dArray,sizeof(unsigned int) * numElements, CudaMemcpyDeviceToHost);
+	cudaMemcpy(valueArray,&dArray,sizeof(unsigned int) * numElements, cudaMemcpyDeviceToHost);
 
 	cudaFree(dArray);
 
 	for(int i = 0; i < numElements;i++){
-		printf("%d \n");
+		printf("--%d \n",valueArray[i]);
 	}
 
 	return 0;
