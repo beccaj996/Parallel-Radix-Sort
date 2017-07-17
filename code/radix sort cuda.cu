@@ -8,14 +8,14 @@ __device__ void partition_by_bit(unsigned int *values, unsigned int bit);
 
 __global__ void radix_sort(unsigned int *values)
 {
-    //print("")
+	printf("%d\n",values);
     int  bit;
     for( bit = 0; bit < 32; ++bit )
     {
         partition_by_bit(values, bit);
         __syncthreads();
     }
-    //printf("654444  %d\n",values);
+    
 }
 
 template<class T>
@@ -97,6 +97,7 @@ int main(){
 	//FIXME: add arugment handler
 	int numElements = 4;
 	unsigned int valueArray[numElements];
+	printf("test\n");
 
 	//FOR TESTING ----
 	valueArray[0] = 15;
@@ -116,7 +117,7 @@ int main(){
 	cudaFree(dArray);
 
 	for(int i = 0; i < numElements;i++){
-		printf("--%d \n",valueArray[i]);
+		printf("%d \n",valueArray[i]);
 	}
 
 	return 0;
