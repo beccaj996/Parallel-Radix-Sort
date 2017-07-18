@@ -23,17 +23,17 @@ __global__ unsigned int radixSort(unsigned int* values, int digit) {
 	// increment the digit.
 	// if there is only 1 value then that list (bucket) is sorted. radiSort will return a sorted list as well.
 	// append the list (bucket) at each index of the histogram to temp_list.
+
 	for (int i = 0; i < histogramSize; i++) {
 		if (histogram[i] size > 1) {
-			temp_list += radixSort<<<numBlocks, numThreads>>>(histogram[i], digit++);
+			// sort the values at histogram[i] (bucket[i]) by calling radixSort on that list
+			histogram[i] = radixSort<<<numBlocks, numThreads>>>(histogram[i], digit++);
 		}
 		
 		temp_list += histogram[i]; // append each bucket to the end of temp_list
-		
 	}
 
 	return temp_list;
-
 }
 
 unsigned int padNumbers(unsigned int* values) {
