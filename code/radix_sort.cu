@@ -10,7 +10,7 @@ unsigned int totalNumbers;
 
 ArrayVals:			9, 31, 4, 18
 
-padded arrayVals:	09, 18, 04, 31
+padded arrayVals:	09, 31, 04, 18
 
 Sort into histogram by leftMost digit (digit 1).
 This can be done in parallel. The order in which
