@@ -8,7 +8,7 @@ unsigned int totalNumbers;
 
 /***************** EXAMPLE ***********************
 
-ArrayVals: 			9, 31, 4, 18
+ArrayVals:			9, 31, 4, 18
 
 padded arrayVals:	09, 18, 04, 31
 
@@ -21,7 +21,7 @@ simultaneously.
 
 
 bucket: 	0  | 1  | 3
-		   -------------
+			------------
 values:		09 | 18 | 31		
 			04 |	|  
 
@@ -38,8 +38,8 @@ bucket 0 contains 04 and 09 so sort these by digit
 0 (the right most digit) to get:
 
 bucket: 	4  |  9
-		   ---------
-values:	   04  |  09
+			--------
+values:		04  |  09
 
 Iterate through each bucket. If a bucket contains
 more than 1 value in it then split into more
@@ -60,8 +60,8 @@ return list: 04,09
 histogram from line 17 should now look like this
 after the returned sorted list:
 
-bucket: 	0  | 1  | 3
-		   -------------
+bucket:		0  | 1  | 3
+			------------
 values:		04 | 18 | 31		
 			09 |	| 
 
