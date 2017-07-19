@@ -210,9 +210,9 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 	// find offset values
 	OFFSETOriginal[0] = histogram[0];
 	OFFSETChanged[0] = OFFSETOriginal[0];
-	// mainHistogram[0] = histogram[0]; // for testing purposes.
+	mainHistogram[0] = histogram[0]; // for testing purposes.
 	for (int i = 1; i < arraySize; i++) {
-		// mainHistogram[i] = histogram[i]; // for testing purposes.
+		mainHistogram[i] = histogram[i]; // for testing purposes.
 		OFFSETOriginal[i] = OFFSETOriginal[i-1] + histogram[i];
 		OFFSETChanged[i] = OFFSETOriginal[i];
 	}
@@ -291,12 +291,12 @@ int main(int argc, char **argv) {
 	cudaMemcpy(histogram, d_histogram, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
 	cudaFree(d_histogram);
 
+	printf("HISTOGRAM:\n");
+	printArray(histogram, histogramSize);
+
 	// print valuesList
 	printf("VALUES AFTER:\n");
 	printArrayU(valuesList, totalNumbers);
-
-	// printf("HISTOGRAM:\n");
-	// printArray(histogram, histogramSize);
 
 	return 0;
 }
