@@ -33,7 +33,7 @@ OFFSET Original:
 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 --------------------------------------
 2 | 3 | 3 | 4 | 4 | 4 | 4 | 4 | 4 | 4
-^	^		^									OFFSET CHANGED IS JUST A 
+												OFFSET CHANGED IS JUST A 
 												COPY OF OFFSET ORIGINAL.
 OFFSET Changed:
 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
@@ -121,7 +121,7 @@ OFFSET:
 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 --------------------------------------
 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 | 1 | 2
-				^					^  
+									  
 
 We iterate over histogram and see if any values are
 greater than 1. There are none so they must all be
