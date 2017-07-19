@@ -64,7 +64,7 @@ OFFSET changed array. We notice it has a value 2 so we can place this
 number at the 2nd index of the secondList array we just created.
 This would be index 1 because arrays start at 0. So whatever
 number fills the OFFSET changed index we subtract 1 to determine the position
-to insert into the secondList. After we input into the secondlList 
+to insert into the secondList. After we input into the secondList 
 we want to decrement the value in OFFSET changed so that the next number
 that checks can be placed in an empty spot and not overwrite
 the numbers in the same bucket. This means index 0 of the OFFSET changed
@@ -161,7 +161,7 @@ The array is sorted and we are done!
 #include <sys/time.h>
 
 // #define MAX 2147483647;
-#define MAX 50;
+#define MAX 99;
 
 unsigned int * valuesList;
 unsigned int totalNumbers;
@@ -196,7 +196,7 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 	int OFFSETChanged[10] = { 0 };
 
 	// create a second temporary list of the same size
-	// unsigned int* tempList;
+	// __shared__ unsigned int secondList[arraySize];
 
 	 int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -210,11 +210,23 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 	// find offset values
 	OFFSETOriginal[0] = histogram[0];
 	OFFSETChanged[0] = OFFSETOriginal[0];
+	// mainHistogram[0] = histogram[0]; // for testing purposes.
 	for (int i = 1; i < arraySize; i++) {
-		mainHistogram[i] = histogram[i]++; // for testing purposes.
+		// mainHistogram[i] = histogram[i]; // for testing purposes.
 		OFFSETOriginal[i] = OFFSETOriginal[i-1] + histogram[i];
 		OFFSETChanged[i] = OFFSETOriginal[i];
 	}
+
+	if (tid < arraySize) {
+		int value = valuesList[tid];
+		int index = OFFSETChanged[valuesList[tid]/digit] - 1;
+		OFFSETChanged[valuesList[tid]/digit]--;
+		__syncthreads();
+		// atomicAdd(&valuesList[index], value);
+		valuesList[index] = value;
+		// OFFSETChanged[valuesList[tid]/digit]--;
+	}
+	__syncthreads();
 
 	return;
 
@@ -240,7 +252,11 @@ int main(int argc, char **argv) {
 	// generate totalNumbers random numbers for valuesList
 	for (int i = 0; i < totalNumbers; i++) {
 		valuesList[i] = (int) rand()%MAX;
+		// valuesList[i] = 26;
 	}
+
+	printf("VALUES BEFORE:\n");
+	printArrayU(valuesList, totalNumbers);
 
 	// fill histogram with 0's
 	for (int i = 0; i < histogramSize; i++) {
@@ -258,8 +274,10 @@ int main(int argc, char **argv) {
 	// by 100. 326 divide 100 returns 3. This example we limit our number size to only
 	// be 2 digits (max_rand defined at top to be 50) so we pass in 10 as our digit to
 	// find the left most digit, the 10's digit.
-	dim3 dimBlock(totalNumbers,1);
-	dim3 dimGrid(1,1);
+	// dim3 dimBlock(totalNumbers,1);
+	dim3 dimGrid(totalNumbers/256 ,1, 1);
+	if (totalNumbers%256) dimGrid.x++;
+	dim3 dimBlock (256, 1, 1);
 	int digit = 10;
 	radixSort<<<dimGrid, dimBlock>>>(d_valuesList, digit, totalNumbers, d_histogram);
 
@@ -270,12 +288,11 @@ int main(int argc, char **argv) {
 	cudaFree(d_histogram);
 
 	// print valuesList
-	printf("VALUES:\n");
+	printf("VALUES AFTER:\n");
 	printArrayU(valuesList, totalNumbers);
 
-	printf("check.\n");
-	printf("HISTOGRAM:\n");
-	printArray(histogram, histogramSize);
+	// printf("HISTOGRAM:\n");
+	// printArray(histogram, histogramSize);
 
 	return 0;
 }
