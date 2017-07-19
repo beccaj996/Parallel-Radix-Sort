@@ -1,8 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <sys/time.h>
-
 /***************** EXAMPLE ***********************
 
 ArrayVals:			9, 31, 4, 18
@@ -158,8 +153,15 @@ The array is sorted and we are done!
 
 **************************************************/
 
-// #define RAND_MAX 2147483647;
-#define RAND_MAX 50;
+//new
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <sys/time.h>
+
+// #define MAX 2147483647;
+#define MAX 50;
 
 unsigned int * valuesList;
 unsigned int totalNumbers;
@@ -185,10 +187,10 @@ void printArrayU(unsigned int * array, int size) {
 }
 
 
-__global__ void radixSort(unsigned int* valuesList, int digit, int* testHistogram) {
+__global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, int* mainHistogram) {
 
 	// each element is corresponds to a bucket from 0-9
-	// each element initialized to 0
+	// each element initialized to 0.
 	__shared__ int histogram[10];
 	int OFFSETOriginal[10] = { 0 };
 	int OFFSETChanged[10] = { 0 };
@@ -196,21 +198,20 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int* testHistogra
 	// create a second temporary list of the same size
 	// unsigned int* tempList;
 
-	// int tid = threadIdx.x + blockIdx.x * blockDim.x; // FIXME: Not sure if this line is correct
-	int tid = threadIdx.x; 
-
+	 int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
 	// take element in values at this instanced thread and find the digit 
 	// we're looking for thats passed in and increment the corresponding element 
 	// in the histogram
-	histogram[valuesList[tid] / digit]++;
+	if (tid < arraySize)
+	  atomicAdd(&histogram[valuesList[tid]/digit], 1);
 	__syncthreads();
 
 	// find offset values
 	OFFSETOriginal[0] = histogram[0];
 	OFFSETChanged[0] = OFFSETOriginal[0];
-	for (int i = 1; i < 10; i++) {
-		testHistogram[i] = histogram[i]++;
+	for (int i = 1; i < arraySize; i++) {
+		mainHistogram[i] = histogram[i]++; // for testing purposes.
 		OFFSETOriginal[i] = OFFSETOriginal[i-1] + histogram[i];
 		OFFSETChanged[i] = OFFSETOriginal[i];
 	}
@@ -228,37 +229,44 @@ int * histogram;
 int main(int argc, char **argv) {
 
 	totalNumbers = atoi(argv[1]);
+	int histogramSize = 10;
 
 	valuesList = (unsigned int *)malloc(sizeof(unsigned int)*totalNumbers);
-	histogram = (int*)malloc(sizeof(int)*10);
+	histogram = (int*)malloc(sizeof(int)*histogramSize);
 	unsigned int* d_valuesList;
 	int* d_histogram;
 
 	srand(1);	
 	// generate totalNumbers random numbers for valuesList
 	for (int i = 0; i < totalNumbers; i++) {
-		valuesList[i] = (int) rand()%RAND_MAX;
+		valuesList[i] = (int) rand()%MAX;
 	}
 
 	// fill histogram with 0's
-	for (int i = 0; i < 10; i++) {
+	for (int i = 0; i < histogramSize; i++) {
 		histogram[i] = 0;
 	}
 
 	cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
 	cudaMemcpy(d_valuesList, valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
 
-	cudaMalloc((void**) &d_histogram, sizeof(int)*10);
-	cudaMemcpy(d_histogram, histogram, sizeof(int)*10, cudaMemcpyHostToDevice);
+	cudaMalloc((void**) &d_histogram, sizeof(int)*histogramSize);
+	cudaMemcpy(d_histogram, histogram, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
 
-	// start with 10th digit. unsigned int limits the digit size to 10 so there can
-	// only be a max of 10 digits.
-	radixSort<<<1, 10>>>(d_valuesList, 10, d_histogram);
+	// digit should be the number we divide valuesList[i] by to find a particular digit.
+	// i.e. if we are looking for the 10's digit we divid by 10. The 100's digit divid
+	// by 100. 326 divide 100 returns 3. This example we limit our number size to only
+	// be 2 digits (max_rand defined at top to be 50) so we pass in 10 as our digit to
+	// find the left most digit, the 10's digit.
+	dim3 dimBlock(totalNumbers,1);
+	dim3 dimGrid(1,1);
+	int digit = 10;
+	radixSort<<<dimGrid, dimBlock>>>(d_valuesList, digit, totalNumbers, d_histogram);
 
 	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
 	cudaFree(d_valuesList);
 
-	cudaMemcpy(histogram, d_histogram, sizeof(int)*10, cudaMemcpyDeviceToHost);
+	cudaMemcpy(histogram, d_histogram, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
 	cudaFree(d_histogram);
 
 	// print valuesList
@@ -267,7 +275,7 @@ int main(int argc, char **argv) {
 
 	printf("check.\n");
 	printf("HISTOGRAM:\n");
-	printArray(histogram, 10);
+	printArray(histogram, histogramSize);
 
 	return 0;
 }
