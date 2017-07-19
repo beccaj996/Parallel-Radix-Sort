@@ -220,7 +220,7 @@ __global__ void radixSort(unsigned int* values, int digit) {
 
 }
 
-__host__ void bucketSort(int* values, int digit) {
+__device__ void bucketSort(int* values, int digit) {
 
 }
 
@@ -234,7 +234,7 @@ int main(int argc, char **argv) {
 	srand(1);	
 	// generate totalNumbers random numbers for valuesList
 	for (int i = 0; i < totalNumbers; i++) {
-		valuesList[i] = (rand() % RAND_MAX + 1);
+		valuesList[i] = (int) rand()%RAND_MAX;
 	}
 
 	cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
