@@ -165,16 +165,16 @@ unsigned int * valuesList;
 unsigned int totalNumbers;
 
 
-__global__ void radixSort(unsigned int* values, int arraySize, int digit) {
+__global__ void radixSort(unsigned int* values, int digit) {
 
 	// each element is corresponds to a bucket from 0-9
 	// each element initialized to 0
 	int histogram[10] = { 0 };
-	int offsetOriginal[10] = { 0 };
-	int offsetChanged[10] = { 0 };
+	int OFFSETOriginal[10] = { 0 };
+	int OFFSETChanged[10] = { 0 };
 
 	// create a second temporary list of the same size
-	unsigned int* tempList[arraySize];
+	unsigned int* tempList;
 
 	// int tid = threadIdx.x + blockIdx.x * blockDim.x; // FIXME: Not sure if this line is correct
 	int tid = threadIdx.x; 
@@ -187,11 +187,11 @@ __global__ void radixSort(unsigned int* values, int arraySize, int digit) {
 	__syncthreads();
 
 	// find offset values
-	offsetOriginal[0] = histogram[0];
-	offsetChanged[0] = offsetOriginal[0];
+	OFFSETOriginal[0] = histogram[0];
+	OFFSETChanged[0] = OFFSETOriginal[0];
 	for (int i = 1; i < 10; i++) {
-		OFFSETOriginal[i] = offsetOriginal[i-1] + histogram[i];
-		OFFSETChanged[i] = offsetOriginal[i];
+		OFFSETOriginal[i] = OFFSETOriginal[i-1] + histogram[i];
+		OFFSETChanged[i] = OFFSETOriginal[i];
 	}
 
 	// test printing of histogram and offset
@@ -220,7 +220,7 @@ __global__ void radixSort(unsigned int* values, int arraySize, int digit) {
 
 }
 
-__host__ bucketSort(int* values, int digit) {
+__host__ void bucketSort(int* values, int digit) {
 
 }
 
@@ -234,7 +234,7 @@ int main(int argc, char **argv) {
 	srand(1);	
 	// generate totalNumbers random numbers for valuesList
 	for (int i = 0; i < totalNumbers; i++) {
-		valuesList[i] = (unsigned int)(rand() % RAND_MAX + 1);
+		valuesList[i] = (rand() % RAND_MAX + 1);
 	}
 
 	cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
@@ -245,7 +245,7 @@ int main(int argc, char **argv) {
 	radixSort<<<0, 10>>>(d_valuesList, 10);
 
 	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
-	cudaFree(device_list);
+	cudaFree(d_valuesList);
 
 	// print ordered list
 	for (int i = 0; i < totalNumbers; i++) {
