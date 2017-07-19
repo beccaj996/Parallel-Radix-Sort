@@ -220,9 +220,13 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 	if (tid < arraySize) {
 		int value = valuesList[tid];
 		int index = OFFSETChanged[valuesList[tid]/digit] - 1;
-		OFFSETChanged[valuesList[tid]/digit]--;
+		valuesList[tid] = 0;
+		// OFFSETChanged[valuesList[tid]/digit]--;
 		__syncthreads();
-		// atomicAdd(&valuesList[index], value);
+		// valuesList[index] = value;
+		while (valuesList[index] != 0) {
+			index--;
+		}
 		valuesList[index] = value;
 		// OFFSETChanged[valuesList[tid]/digit]--;
 	}
