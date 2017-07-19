@@ -187,13 +187,13 @@ void printArrayU(unsigned int * array, int size) {
 
 __global__ void radixSort(unsigned int* valuesList, int digit, int* histogram) {
 
-	printf("test.\n");
+	//printf("test.\n");
 
 	// each element is corresponds to a bucket from 0-9
 	// each element initialized to 0
 	// int histogram[10] = { 0 };
-	int OFFSETOriginal[10] = { 0 };
-	int OFFSETChanged[10] = { 0 };
+	__shared__ int OFFSETOriginal[10]; //= { 0 };
+	__shared__ int OFFSETChanged[10]; //= { 0 };
 
 	// create a second temporary list of the same size
 	// unsigned int* tempList;
@@ -254,7 +254,7 @@ int main(int argc, char **argv) {
 
 	// start with 10th digit. unsigned int limits the digit size to 10 so there can
 	// only be a max of 10 digits.
-	radixSort<<<0, 10>>>(d_valuesList, 10, d_histogram);
+	radixSort<<<64, 8>>>(d_valuesList, 10, d_histogram);
 
 	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
 	cudaFree(d_valuesList);
