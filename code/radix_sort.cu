@@ -164,17 +164,39 @@ The array is sorted and we are done!
 unsigned int * valuesList;
 unsigned int totalNumbers;
 
+void printArray(int * array, int size) {
+	
+	printf("[ ");
+  	for (int i = 0; i < size; i++) {
+    	printf("%d ", array[i]);
+	}
 
-__global__ void radixSort(unsigned int* values, int digit) {
+  	printf("]\n");
+}
+
+void printArrayU(unsigned int * array, int size) {
+	
+	printf("[ ");
+  	for (int i = 0; i < size; i++) {
+    	printf("%d ", array[i]);
+	}
+
+  	printf("]\n");
+}
+
+
+__global__ void radixSort(unsigned int* valuesList, int digit, int* histogram) {
+
+	printf("test.\n");
 
 	// each element is corresponds to a bucket from 0-9
 	// each element initialized to 0
-	int histogram[10] = { 0 };
+	// int histogram[10] = { 0 };
 	int OFFSETOriginal[10] = { 0 };
 	int OFFSETChanged[10] = { 0 };
 
 	// create a second temporary list of the same size
-	unsigned int* tempList;
+	// unsigned int* tempList;
 
 	// int tid = threadIdx.x + blockIdx.x * blockDim.x; // FIXME: Not sure if this line is correct
 	int tid = threadIdx.x; 
@@ -183,7 +205,7 @@ __global__ void radixSort(unsigned int* values, int digit) {
 	// take element in values at this instanced thread and find the digit 
 	// we're looking for thats passed in and increment the corresponding element 
 	// in the histogram
-	histogram[values[tid] / digit]++;
+	histogram[valuesList[tid] / digit]++;
 	__syncthreads();
 
 	// find offset values
@@ -194,28 +216,6 @@ __global__ void radixSort(unsigned int* values, int digit) {
 		OFFSETChanged[i] = OFFSETOriginal[i];
 	}
 
-	// test printing of histogram and offset
-	printf("HISTOGRAM:\n");
-	for (int i = 0; i < 10; i++) {
-		printf("%d, ", histogram[i]);
-	}
-
-	printf("--------------------------------------\n");
-
-	printf("OFFSETOriginal:\n");
-	for (int i = 0; i < 10; i++) {
-		printf("%d, ", OFFSETOriginal[i]);
-	}
-
-	printf("--------------------------------------\n");
-
-	printf("OFFSETChanged:\n");
-	for (int i = 0; i < 10; i++) {
-		printf("%d, ", OFFSETChanged[i]);
-	}
-
-	printf("--------------------------------------\n");
-
 	return;
 
 }
@@ -224,12 +224,16 @@ __device__ void bucketSort(int* values, int digit) {
 
 }
 
+int * histogram;
+
 int main(int argc, char **argv) {
 
 	totalNumbers = atoi(argv[1]);
 
 	valuesList = (unsigned int *)malloc(sizeof(unsigned int)*totalNumbers);
+	histogram = (int*)malloc(sizeof(int)*10);
 	unsigned int* d_valuesList;
+	int* d_histogram;
 
 	srand(1);	
 	// generate totalNumbers random numbers for valuesList
@@ -237,20 +241,34 @@ int main(int argc, char **argv) {
 		valuesList[i] = (int) rand()%RAND_MAX;
 	}
 
+	// fill histogram with 0's
+	for (int i = 0; i < 10; i++) {
+		histogram[i] = 0;
+	}
+
 	cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
 	cudaMemcpy(d_valuesList, valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
 
+	cudaMalloc((void**) &d_histogram, sizeof(int)*10);
+	cudaMemcpy(d_histogram, histogram, sizeof(int)*10, cudaMemcpyHostToDevice);
+
 	// start with 10th digit. unsigned int limits the digit size to 10 so there can
 	// only be a max of 10 digits.
-	radixSort<<<0, 10>>>(d_valuesList, 10);
+	radixSort<<<0, 10>>>(d_valuesList, 10, d_histogram);
 
 	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
 	cudaFree(d_valuesList);
 
-	// print ordered list
-	for (int i = 0; i < totalNumbers; i++) {
-		printf("valuesList[%d] = %d\n", i, valuesList[i]);
-	}
+	cudaMemcpy(histogram, d_histogram, sizeof(int)*10, cudaMemcpyDeviceToHost);
+	cudaFree(d_histogram);
+
+	// print valuesList
+	printf("VALUES:\n");
+	printArrayU(valuesList, totalNumbers);
+
+	printf("check.\n");
+	printf("HISTOGRAM:\n");
+	printArray(histogram, 10);
 
 	return 0;
 }
