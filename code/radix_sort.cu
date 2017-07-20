@@ -185,43 +185,29 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 	mainOffset[0] = histogram[0];
 	mainOffsetChanged[0] = histogram[0];
 	for (int i = 1; i < 10; i++) {
-		// OFFSETOriginal[i] = OFFSETOriginal[i-1] + histogram[i];
-		// OFFSETChanged[i] = OFFSETChanged[i-1] + histogram[i];
-		mainOffsetChanged[i] = mainOffsetChanged[i-1] + histogram[i];
 		mainOffset[i] = mainOffset[i-1] + histogram[i];
+		mainOffsetChanged[i] = mainOffsetChanged[i-1] + histogram[i];
 	}
+
+	__shared__ int i;
 
 	// group numbers together by bucket
 	if (tid < arraySize) {
-		// get the value at this instanced threads id that corresponds to the value at its index in valuesList
-		int value = valuesList[tid];
-		// find the max index this threads value found from valueList by looking in its offsetbucket
-		// int index = OFFSETChanged[valuesList[tid]/digit] - 1;
-		int index = mainOffsetChanged[valuesList[tid]/digit] - 1;
-		// set every element in valuesList to 0.
-		// valuesList[tid] = 0;
-		// OFFSETChanged[valuesList[tid]/digit]--;
-		__syncthreads();
+		int value;
+		int index;
+		for (i = 0; i < arraySize; i++) {
+			if (tid == i) {
+				value = valuesList[tid];
+				index = mainOffsetChanged[value/digit] - 1;
+				atomicAdd(&mainOffsetChanged[value/digit], -1);
+			}
+		}
 
-		// place the values at their index found above as long as its empty (contains a 0)
-		// if its filled from another thread already placing a value there,
-		// go to the index before it and keep searching down until you find an empty spot
+		__syncthreads();
 		
-		// while (valuesList[index] != 0) {
-		// 	atomicAdd(&OFFSETChanged[valuesList[tid]/digit], -1);
-		// 	index = OFFSETChanged[valuesList[tid]/digit] - 1;
-		// }
-		
-		int previousValue = value;
 		valuesList[index] = value;
-		atomicAdd(&mainOffsetChanged[previousValue/digit], -1);
-		// the list should now be sorted by the 10's digit
 	}
 	__syncthreads();
-
-	// for (int i = 0; i < 10; i++) {
-	// 	mainOffsetAfter[i] = OFFSETChanged[i];
-	// }
 
 	return;
 
