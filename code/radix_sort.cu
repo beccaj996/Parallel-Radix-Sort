@@ -126,12 +126,15 @@ __global__ void radix_Sort(unsigned int* valuesList, int digit, int startPos, in
 	__syncthreads();
 
 	// find offset values
-	mainOffset[0] = histogram[0];
-	mainOffsetChanged[0] = histogram[0];
-	for (int i = 1; i < 10; i++) {
-		mainOffsetChanged[i] = mainOffsetChanged[i-1] + histogram[i];
-		mainOffset[i] = mainOffset[i-1] + histogram[i];
-	}
+	// if (tid == 0) {
+		mainOffset[0] = histogram[0];
+		mainOffsetChanged[0] = histogram[0];
+		for (int i = 1; i < 10; i++) {
+			mainOffsetChanged[i] = mainOffsetChanged[i-1] + histogram[i];
+			mainOffset[i] = mainOffset[i-1] + histogram[i];
+		}
+	// }
+	// __syncthreads();
 
 	// group numbers together by bucket
 	if (tid < arraySize) {		
@@ -198,26 +201,71 @@ __device__ void bucketSort(int* valuesList, int min, int max, int highestDigit, 
 int * histogram;
 int * offset;
 int * offsetAfter;
+int histogramSize;
+
+unsigned int* d_valuesList;
+int* d_histogram;
+int* d_offset;
+int* d_offsetAfter;
+
+
+void sortArray() {
+	// cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
+	// cudaMemcpy(d_valuesList, valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
+
+	// cudaMalloc((void**) &d_histogram, sizeof(int)*histogramSize);
+	// cudaMemcpy(d_histogram, histogram, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
+
+	// cudaMalloc((void**) &d_offset, sizeof(int)*histogramSize);
+	// cudaMemcpy(d_offset, offset, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
+
+	// cudaMalloc((void**) &d_offsetAfter, sizeof(int)*histogramSize);
+	// cudaMemcpy(d_offsetAfter, offsetAfter, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
+
+	// // digit should be the number we divide valuesList[i] by to find a particular digit.
+	// // i.e. if we are looking for the 10's digit we divid by 10. The 100's digit divid
+	// // by 100. 326 divide 100 returns 3. This example we limit our number size to only
+	// // be 2 digits (max_rand defined at top to be 50) so we pass in 10 as our digit to
+	// // find the left most digit, the 10's digit.
+	// // dim3 dimBlock(totalNumbers,1);
+	// dim3 dimGrid(totalNumbers/256 ,1, 1);
+	// if (totalNumbers%256) dimGrid.x++;
+	// dim3 dimBlock (256, 1, 1);
+	// int digit = 10;
+	// // radixSort<<<(totalNumbers+255)/256, 256>>>(d_valuesList, digit, totalNumbers, d_histogram, d_offset, d_offsetAfter);
+	// radix_Sort<<<(totalNumbers+255)/256, 256>>>(d_valuesList, digit, 0, totalNumbers, d_histogram, d_offset, d_offsetAfter);
+
+	// cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
+	// cudaFree(d_valuesList);
+
+	// cudaMemcpy(histogram, d_histogram, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
+	// cudaFree(d_histogram);
+
+	// cudaMemcpy(offset, d_offset, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
+	// cudaFree(d_offset);
+
+	// cudaMemcpy(offsetAfter, d_offsetAfter, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
+	// cudaFree(d_offsetAfter);
+}
 
 int main(int argc, char **argv) {
 
 	totalNumbers = atoi(argv[1]);
-	int histogramSize = 10;
+	histogramSize = 10;
 
 	valuesList = (unsigned int *)malloc(sizeof(unsigned int)*totalNumbers);
 	histogram = (int*)malloc(sizeof(int)*histogramSize);
 	offset = (int*)malloc(sizeof(int)*histogramSize);
 	offsetAfter = (int*)malloc(sizeof(int)*histogramSize);
-	unsigned int* d_valuesList;
-	int* d_histogram;
-	int* d_offset;
-	int* d_offsetAfter;
+	// unsigned int* d_valuesList;
+	// int* d_histogram;
+	// int* d_offset;
+	// int* d_offsetAfter;
 
 	srand(1);	
 	// generate totalNumbers random numbers for valuesList
 	for (int i = 0; i < totalNumbers; i++) {
 		valuesList[i] = (int) rand()%MAX;
-		// valuesList[i] = 26;
 	}
 
 	// printf("VALUES BEFORE:\n");
@@ -229,6 +277,8 @@ int main(int argc, char **argv) {
 		offset[i] = 0;
 		offsetAfter[i] = 0;
 	}
+
+	// sortArray();
 
 	cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
 	cudaMemcpy(d_valuesList, valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
