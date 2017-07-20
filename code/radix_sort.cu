@@ -223,19 +223,22 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 		// find the max index this threads value found from valueList by looking in its offsetbucket
 		int index = OFFSETChanged[valuesList[tid]/digit] - 1;
 		// set every element in valuesList to 0.
-		valuesList[tid] = 0;
+		// valuesList[tid] = 0;
 		// OFFSETChanged[valuesList[tid]/digit]--;
 		__syncthreads();
 
 		// place the values at their index found above as long as its empty (contains a 0)
 		// if its filled from another thread already placing a value there,
 		// go to the index before it and keep searching down until you find an empty spot
-		while (valuesList[index] != 0) {
-			atomicAdd(&OFFSETChanged[valuesList[tid]/digit], -1);
-			index = OFFSETChanged[valuesList[tid]/digit] - 1;
-		}
 		
+		// while (valuesList[index] != 0) {
+		// 	atomicAdd(&OFFSETChanged[valuesList[tid]/digit], -1);
+		// 	index = OFFSETChanged[valuesList[tid]/digit] - 1;
+		// }
+		
+		int previousValue = value;
 		valuesList[index] = value;
+		atomicAdd(&OFFSETChanged[previousValue/digit], -1);
 		// the list should now be sorted by the 10's digit
 	}
 	__syncthreads();
