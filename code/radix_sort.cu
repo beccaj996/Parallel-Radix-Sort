@@ -164,13 +164,12 @@ void printArrayU(unsigned int * array, int size) {
 }
 
 
-__global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, int* histogram, int* mainOffset, int* mainOffsetAfter) {
+__global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, int* histogram, int* mainOffset, int* mainOffsetChanged) {
 
 	// each element is corresponds to a bucket from 0-9
 	// each element initialized to 0.
-//	__shared__ int histogram[10];
 	// int OFFSETOriginal[10];
-	__shared__ int OFFSETChanged[10];
+	// __shared__ int OFFSETChanged[10];
 
 	 int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -182,15 +181,14 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 	__syncthreads();
 
 	// find offset values
-	// OFFSETOriginal[0] = histogram[0];
-	OFFSETChanged[0] = histogram[0];
-//	mainHistogram[0] = histogram[0]; // for testing purposes.
+	// OFFSETChanged[0] = histogram[0];
 	mainOffset[0] = histogram[0];
+	mainOffsetChanged[0] = histogram[0];
 	for (int i = 1; i < 10; i++) {
-//		mainHistogram[i] = histogram[i]; // for testing purposes.
 		// OFFSETOriginal[i] = OFFSETOriginal[i-1] + histogram[i];
-		OFFSETChanged[i] = OFFSETChanged[i-1] + histogram[i];
-		mainOffset[i] = OFFSETChanged[i];
+		// OFFSETChanged[i] = OFFSETChanged[i-1] + histogram[i];
+		mainOffsetChanged[i] = mainOffsetChanged[i-1] + histogram[i];
+		mainOffset[i] = mainOffset[i-1] + histogram[i];
 	}
 
 	// group numbers together by bucket
@@ -198,7 +196,8 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 		// get the value at this instanced threads id that corresponds to the value at its index in valuesList
 		int value = valuesList[tid];
 		// find the max index this threads value found from valueList by looking in its offsetbucket
-		int index = OFFSETChanged[valuesList[tid]/digit] - 1;
+		// int index = OFFSETChanged[valuesList[tid]/digit] - 1;
+		int index = mainOffsetChanged[valuesList[tid]/digit] - 1;
 		// set every element in valuesList to 0.
 		// valuesList[tid] = 0;
 		// OFFSETChanged[valuesList[tid]/digit]--;
@@ -215,14 +214,14 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 		
 		int previousValue = value;
 		valuesList[index] = value;
-		atomicAdd(&OFFSETChanged[previousValue/digit], -1);
+		atomicAdd(&mainOffsetChanged[previousValue/digit], -1);
 		// the list should now be sorted by the 10's digit
 	}
 	__syncthreads();
 
-	for (int i = 0; i < 10; i++) {
-		mainOffsetAfter[i] = OFFSETChanged[i];
-	}
+	// for (int i = 0; i < 10; i++) {
+	// 	mainOffsetAfter[i] = OFFSETChanged[i];
+	// }
 
 	return;
 
