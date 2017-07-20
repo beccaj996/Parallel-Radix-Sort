@@ -187,16 +187,13 @@ void printArrayU(unsigned int * array, int size) {
 }
 
 
-__global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, int* mainHistogram, int* mainOffset) {
+__global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, int* mainHistogram, int* mainOffset, int* mainOffsetAfter) {
 
 	// each element is corresponds to a bucket from 0-9
 	// each element initialized to 0.
 	__shared__ int histogram[10];
-	int OFFSETOriginal[10];
+	// int OFFSETOriginal[10];
 	__shared__ int OFFSETChanged[10];
-
-	// create a second temporary list of the same size
-	// __shared__ unsigned int secondList[arraySize];
 
 	 int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -208,34 +205,44 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 	__syncthreads();
 
 	// find offset values
-	OFFSETOriginal[0] = histogram[0];
+	// OFFSETOriginal[0] = histogram[0];
 	OFFSETChanged[0] = histogram[0];
 	mainHistogram[0] = histogram[0]; // for testing purposes.
 	mainOffset[0] = histogram[0];
-	for (int i = 1; i < arraySize; i++) {
+	for (int i = 1; i < 10; i++) {
 		mainHistogram[i] = histogram[i]; // for testing purposes.
-		OFFSETOriginal[i] = OFFSETOriginal[i-1] + histogram[i];
-		OFFSETChanged[i] = OFFSETOriginal[i-1] + histogram[i];
-		mainOffset[i] = OFFSETOriginal[i];
+		// OFFSETOriginal[i] = OFFSETOriginal[i-1] + histogram[i];
+		OFFSETChanged[i] = OFFSETChanged[i-1] + histogram[i];
+		mainOffset[i] = OFFSETChanged[i];
 	}
 
+	// group numbers together by bucket
 	if (tid < arraySize) {
+		// get the value at this instanced threads id that corresponds to the value at its index in valuesList
 		int value = valuesList[tid];
+		// find the max index this threads value found from valueList by looking in its offsetbucket
 		int index = OFFSETChanged[valuesList[tid]/digit] - 1;
+		// set every element in valuesList to 0.
 		valuesList[tid] = 0;
 		// OFFSETChanged[valuesList[tid]/digit]--;
 		__syncthreads();
 
-		// while (valuesList[index] != 0) {
-		// 	OFFSETChanged[valuesList[tid]/digit]--;
-		// 	index = OFFSETChanged[valuesList[tid]/digit] - 1;
-		// }
-
-		valuesList[index] = value;
-
+		// place the values at their index found above as long as its empty (contains a 0)
+		// if its filled from another thread already placing a value there,
+		// go to the index before it and keep searching down until you find an empty spot
+		while (valuesList[index] != 0) {
+			atomicAdd(&OFFSETChanged[valuesList[tid]/digit], -1);
+			index = OFFSETChanged[valuesList[tid]/digit] - 1;
+		}
 		
+		valuesList[index] = value;
+		// the list should now be sorted by the 10's digit
 	}
 	__syncthreads();
+
+	for (int i = 0; i < 10; i++) {
+		mainOffsetAfter[i] = OFFSETChanged[i];
+	}
 
 	return;
 
@@ -247,6 +254,7 @@ __device__ void bucketSort(int* values, int digit) {
 
 int * histogram;
 int * offset;
+int * offsetAfter;
 
 int main(int argc, char **argv) {
 
@@ -256,9 +264,11 @@ int main(int argc, char **argv) {
 	valuesList = (unsigned int *)malloc(sizeof(unsigned int)*totalNumbers);
 	histogram = (int*)malloc(sizeof(int)*histogramSize);
 	offset = (int*)malloc(sizeof(int)*histogramSize);
+	offsetAfter = (int*)malloc(sizeof(int)*histogramSize);
 	unsigned int* d_valuesList;
 	int* d_histogram;
 	int* d_offset;
+	int* d_offsetAfter;
 
 	srand(1);	
 	// generate totalNumbers random numbers for valuesList
@@ -274,6 +284,7 @@ int main(int argc, char **argv) {
 	for (int i = 0; i < histogramSize; i++) {
 		histogram[i] = 0;
 		offset[i] = 0;
+		offsetAfter[i] = 0;
 	}
 
 	cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
@@ -285,6 +296,9 @@ int main(int argc, char **argv) {
 	cudaMalloc((void**) &d_offset, sizeof(int)*histogramSize);
 	cudaMemcpy(d_offset, offset, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
 
+	cudaMalloc((void**) &d_offsetAfter, sizeof(int)*histogramSize);
+	cudaMemcpy(d_offsetAfter, offsetAfter, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
+
 	// digit should be the number we divide valuesList[i] by to find a particular digit.
 	// i.e. if we are looking for the 10's digit we divid by 10. The 100's digit divid
 	// by 100. 326 divide 100 returns 3. This example we limit our number size to only
@@ -295,7 +309,7 @@ int main(int argc, char **argv) {
 	if (totalNumbers%256) dimGrid.x++;
 	dim3 dimBlock (256, 1, 1);
 	int digit = 10;
-	radixSort<<<(totalNumbers+255)/256, 256>>>(d_valuesList, digit, totalNumbers, d_histogram, d_offset);
+	radixSort<<<(totalNumbers+255)/256, 256>>>(d_valuesList, digit, totalNumbers, d_histogram, d_offset, d_offsetAfter);
 
 	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
 	cudaFree(d_valuesList);
@@ -306,11 +320,17 @@ int main(int argc, char **argv) {
 	cudaMemcpy(offset, d_offset, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
 	cudaFree(d_offset);
 
+	cudaMemcpy(offsetAfter, d_offsetAfter, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
+	cudaFree(d_offsetAfter);
+
 	printf("HISTOGRAM:\n");
 	printArray(histogram, histogramSize);
 
-	printf("OFFSET:\n");
+	printf("OFFSET BEFORE:\n");
 	printArray(offset, histogramSize);
+
+	printf("OFFSET AFTER:\n");
+	printArray(offsetAfter, histogramSize);
 
 	// print valuesList
 	printf("VALUES AFTER:\n");
