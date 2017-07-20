@@ -1,26 +1,20 @@
+//new
 /***************** EXAMPLE ***********************
-
 ArrayVals:			9, 31, 4, 18
-
 padded ArrayVals:	09, 31, 04, 18
-
 create histogram of size 10 for buckets 0-9
 which each element initialized to 0. Use a thread
 on each element of ArrayVals and increment the value
 in the bucket it belongs to. This will count how many
 values that belong in each bucket. In the above
 example the histogram values would look like this:
-
-
 HISTOGRAM:	
 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 	BUCKET
 --------------------------------------
 2 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 	VALUES COUNTER
-
 next use an array to count the OFFSET and a copy of  that OFFSET array.
 This is done by taking the element value at each index of the
 histogram and adding it to the value at the previous index.
-
 OFFSET Original:
 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 --------------------------------------
@@ -38,26 +32,21 @@ OFFSET Changed:
 |	taken from second index plus the first index (1+2)
 |
 taken from the first index in histogram (2)
-
 The reason we create a copy is because later, when we
 want to determine how to rearange the elements, we have
 to decrement the values in OFFSET so they don't overwrite
 each other but we must also remember the original OFFSET
 values. This will become clearer later.
-
 As you can see the numbers that repeat occur (like index 2
 and 4-9) when its corresponding index in the histogram equals 0
 so the value doesn't increase.
-
 Now we need to iterate over ArrayVals again and look at
 the OFFSET changed array index it corresponds with to determine
 where it goes in the list. We'll create a second temporary
 list so that we don't ruin the order of the elements in the
 original ArrayVals. This can be done in parallel so we can
 use a thread to look at each element of ArrayVals at once.
-
 secondList[ArrayValsSize];
-
 we will, for example, look at the first element in ArrayVals.
 Its left most digit is 0 so we will look at index 0 in the 
 OFFSET changed array. We notice it has a value 2 so we can place this
@@ -72,7 +61,6 @@ array goes from 2 to 1. We do the same thing for the other three
 elements in ArrayVals. 31's first digit is a 3 so look at index 3 in 
 OFFSET changed and we see that it gets placed at 4-1=3 index in the secondList.
 Remember to decrement the value at OFFSET changed[3] which = 4 so it becomes 3.
-
 continue this with the next value which is 04 which means we look at 
 OFFSET changed[0], because its left most digit is 0, which has a value of 1 
 because the value 2 was decremented when 09 was placed in secondList above
@@ -81,16 +69,13 @@ index 1-1=0 of secondList. We finish with value 18. OFFSET changed[1] (because i
 left most bit is 1) has a value of 3 so we put 18 into secondList[2] 
 because 3-1 = 2. After every element has been properly inserted into secondList, 
 it should now look like this:
-
 secondList:
 04, 09, 18, 31
-
 We can see that its sorted but the computer doensn't know that.
 In order to be sure its sorted we iterate through the histogram
 and check to see if each value is at most 1. So if any value
 in histogram is greater than 1 then we can't be sure its sorted
 because we don't know which threads finished first.
-
 So next if we find a value in histogram that is greater than 1 we
 look to that index but in the original OFFSET. So histogram[0] has
 a value of 2 which means we look in the original OFFSET[0] to get
@@ -103,18 +88,15 @@ on the next digit to the right. so we sort 04 and 09
 by counting them into the histogram and finding the OFFSET just
 like above in lines 15-30.
 They will each look like this:
-
 HISTOGRAM:
 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 --------------------------------------
 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 | 1
-
 OFFSET:
 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 --------------------------------------
 0 | 0 | 0 | 0 | 1 | 1 | 1 | 1 | 1 | 2
 									  
-
 We iterate over histogram and see if any values are
 greater than 1. There are none so they must all be
 sorted! so we iterate over histogram and when we
@@ -132,25 +114,20 @@ return to the previous step which is line 102 where
 it will continuing iterating over its histogram
 looking for values greater than 1. Refer to the
 histogram displayed on line 23 as displayed here:
-
 HISTOGRAM:	
 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 	BUCKET
 --------------------------------------
 2 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 0 | 0 	VALUES COUNTER
-
 We branched off initially from histogram[0] because it 
 had a value greater than 1 but now we are back and can 
 continue. The rest of the elemnts contain either a 0 or 1 
 so don't need to be sorted anymore. This means secondList
 contains the sorted array. 
-
 All that is left is to use threads for each element
 of secondList and copy their value into the original
 array ArrayVals because ArrayVals is the one that
 was sent from the CPU that needs to go back to the CPU.
-
 The array is sorted and we are done!
-
 **************************************************/
 
 //new
@@ -187,11 +164,11 @@ void printArrayU(unsigned int * array, int size) {
 }
 
 
-__global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, int* mainHistogram, int* mainOffset, int* mainOffsetAfter) {
+__global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, int* histogram, int* mainOffset, int* mainOffsetAfter) {
 
 	// each element is corresponds to a bucket from 0-9
 	// each element initialized to 0.
-	__shared__ int histogram[10];
+//	__shared__ int histogram[10];
 	// int OFFSETOriginal[10];
 	__shared__ int OFFSETChanged[10];
 
@@ -207,10 +184,10 @@ __global__ void radixSort(unsigned int* valuesList, int digit, int arraySize, in
 	// find offset values
 	// OFFSETOriginal[0] = histogram[0];
 	OFFSETChanged[0] = histogram[0];
-	mainHistogram[0] = histogram[0]; // for testing purposes.
+//	mainHistogram[0] = histogram[0]; // for testing purposes.
 	mainOffset[0] = histogram[0];
 	for (int i = 1; i < 10; i++) {
-		mainHistogram[i] = histogram[i]; // for testing purposes.
+//		mainHistogram[i] = histogram[i]; // for testing purposes.
 		// OFFSETOriginal[i] = OFFSETOriginal[i-1] + histogram[i];
 		OFFSETChanged[i] = OFFSETChanged[i-1] + histogram[i];
 		mainOffset[i] = OFFSETChanged[i];
