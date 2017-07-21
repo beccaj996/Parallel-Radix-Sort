@@ -105,7 +105,7 @@ __global__ void radix_Sort(unsigned int* valuesList, int digitMax, int digitCurr
 	// in the histogram
 	int tempDigitMax = digitMax;
 	int tempDigitCurrent = digitCurrent;
-	if (tid < arraySize) {
+	if (tid < startPos + arraySize) {
 		int num = valuesList[tid];
 		while (tempDigitMax != tempDigitCurrent) {
 			num = valuesList[tid] / tempDigitMax;
@@ -130,6 +130,23 @@ __global__ void radix_Sort(unsigned int* valuesList, int digitMax, int digitCurr
 
 
 	__syncthreads();
+
+	return;
+
+}
+
+__global__ void moveElements(unsigned int *valuesList, unsigned int *indexList, int startPos, int arraySize) {
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	tid += startPos;
+
+	if (tid < startPos + arraySize) {
+		int val = valuesList[tid];
+		int index = indexList[tid];
+
+		__syncthreads();
+
+		valuesList[index] = val;
+	}
 
 	return;
 
@@ -164,11 +181,29 @@ void sortArray(int dig, int totalNums, int minIndex) {
 	cudaMemcpy(offsetAfter, d_offsetAfter, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
 	cudaFree(d_offsetAfter);
 
-	int tempArray[totalNums];
+	unsigned int *tempArray = (unsigned int*)malloc(sizeof(unsigned int)*totalNums);
+	unsigned int *d_tempArray;
 	for (int i = 0; i < totalNums; i++) {
 		tempArray[i] = offsetAfter[valuesList[i]/10] - 1;
 		offsetAfter[valuesList[i]/10]--;
 	}
+
+	cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
+	cudaMemcpy(d_valuesList, valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
+
+	cudaMalloc((void **) &d_tempArray, sizeof(unsigned int)*totalNums);
+	cudaMemcpy(d_tempArray, tempArray, sizeof(unsigned int)*totalNums, cudaMemcpyHostToDevice);
+
+	// kernel call
+	moveElements<<<(totalNums+255)/256,256>>>(d_valuesList, d_tempArray, 0, totalNums);
+
+	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
+	cudaFree(d_valuesList);
+
+	cudaMemcpy(tempArray, d_tempArray, sizeof(unsigned int)*totalNums, cudaMemcpyDeviceToHost);
+	cudaFree(d_tempArray);
+
+
 
 	// for (int i = 0; i < 10; i++) {
 	// 	if (histogram[i] > 1) {
@@ -197,8 +232,8 @@ int main(int argc, char **argv) {
 		valuesList[i] = (int) rand()%MAX;
 	}
 
-	// printf("VALUES BEFORE:\n");
-	// printArrayU(valuesList, totalNumbers);
+	printf("VALUES BEFORE:\n");
+	printArrayU(valuesList, totalNumbers);
 
 	// fill histogram with 0's
 	for (int i = 0; i < histogramSize; i++) {
@@ -224,7 +259,7 @@ int main(int argc, char **argv) {
 	// by 100. 326 divide 100 returns 3. This example we limit our number size to only
 	// be 2 digits (max_rand defined at top to be 50) so we pass in 10 as our digit to
 	// find the left most digit, the 10's digit.
-	
+
 	digit = 10;
 	// radixSort<<<(totalNumbers+255)/256, 256>>>(d_valuesList, digit, totalNumbers, d_histogram, d_offset, d_offsetAfter);
 	sortArray(digit, totalNumbers, 0);
@@ -238,9 +273,8 @@ int main(int argc, char **argv) {
 	printf("OFFSET AFTER:\n");
 	printArray(offsetAfter, histogramSize);
 
-	// print valuesList
-	// printf("VALUES AFTER:\n");
-	// printArrayU(valuesList, totalNumbers);
+	printf("VALUES AFTER:\n");
+	printArrayU(valuesList, totalNumbers);
 
 	return 0;
 }
