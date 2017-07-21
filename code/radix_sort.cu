@@ -1,4 +1,11 @@
-// Jake Manfre
+/*****************************************
+
+Project 3
+James Albu, Rebecca Johnson, Jacob Manfre
+
+GPU Radix Sort Algorithm
+
+*******************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
