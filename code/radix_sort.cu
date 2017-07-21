@@ -1,10 +1,7 @@
 /*****************************************
-
 Project 3
 James Albu, Rebecca Johnson, Jacob Manfre
-
 GPU Radix Sort Algorithm
-
 *******************************************/
 
 #include <stdio.h>
@@ -12,36 +9,79 @@ GPU Radix Sort Algorithm
 #include <math.h>
 #include <sys/time.h>
 
-#define MAX 2147483647;
-// #define MAX 999999;
+#define MAX 2147483647;								//largest 32bit signed integer
+ //#define MAX 99;
 
-unsigned int * valuesList;
-unsigned int* d_valuesList;
+unsigned int * valuesList;							//holds values for parallel radix sort
+unsigned int * valuesList2;							//array holds values for sequential radix sort
+unsigned int* d_valuesList;							//holds values for device
 
-unsigned int totalNumbers;
+struct timezone Idunno;
+struct timeval startTime, endTime;
+
+float totalRunningTime = 0.00000;
+unsigned int totalNumbers;							//number of data values in array
 int histogramSize;
-int digit = 1000000000;
+int digit = 1000000000;								//largest possible place value for 32bit signed integers
 
-void printArray(int * array, int size) {
-	
+//calculates running time of the radix sort algorithm
+float report_running_time() {
+	long sec_diff, usec_diff;
+	gettimeofday(&endTime, &Idunno);
+	sec_diff = endTime.tv_sec - startTime.tv_sec;
+	usec_diff= endTime.tv_usec-startTime.tv_usec;
+	if(usec_diff < 0) {
+		sec_diff --;
+		usec_diff += 1000000;
+	}
+
+	return (float)(sec_diff*1.0 + usec_diff/1000000.0);
+}
+
+//sequentially sorts the radix sort algorithm on the CPU in order to compare its running time to GPU
+void seqSort(unsigned int * array, int size){
+  int i;
+  long long semiSorted[size];
+  int significantDigit = 1;
+  int largestNum = 1000000000;
+  // Loop until we reach the largest significant digit
+  while (largestNum / significantDigit > 0)
+  {  
+    long long bucket[10] = { 0 };
+    // Counts the number of "keys" or digits that will go into each bucket
+    for (i = 0; i < size; i++)
+      bucket[(array[i] / significantDigit) % 10]++;
+    for (i = 1; i < 10; i++)
+      bucket[i] += bucket[i - 1];   
+    // Use the bucket to fill a "semiSorted" array
+    for (i = size - 1; i >= 0; i--)
+      semiSorted[--bucket[(array[i] / significantDigit) % 10]] = array[i];
+    for (i = 0; i < size; i++)
+      array[i] = semiSorted[i];
+    // Move to next significant digit
+    significantDigit *= 10;
+    
+  }
+}
+
+//function to print out arrays
+void printArray(int * array, int size) {	
+	printf("[ ");
+  	for (int i = 0; i < size; i++) {
+    	printf("%d ", array[i]);}
+  	printf("]\n");
+}
+
+void printArrayU(unsigned int * array, int size) {	
 	printf("[ ");
   	for (int i = 0; i < size; i++) {
     	printf("%d ", array[i]);
 	}
-
   	printf("]\n");
 }
 
-void printArrayU(unsigned int * array, int size) {
-	
-	printf("[ ");
-  	for (int i = 0; i < size; i++) {
-    	printf("%d ", array[i]);
-	}
-
-  	printf("]\n");
-}
-
+//main GPU kernel
+//counts the number of instances for a place value and stores in a histogram
 __global__ void radix_Sort(unsigned int* valuesList, int digitMax, int digitCurrent, int startPos, int arraySize, int* histogram, int* mainOffset, int* mainOffsetChanged) {
 
 	 int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -80,6 +120,7 @@ __global__ void radix_Sort(unsigned int* valuesList, int digitMax, int digitCurr
 
 }
 
+//rearragnes the array elements to correspond to the bucket they are placed in
 __global__ void moveElements(unsigned int *valuesList, unsigned int *indexList, int startPos, int arraySize) {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	tid += startPos;
@@ -89,16 +130,15 @@ __global__ void moveElements(unsigned int *valuesList, unsigned int *indexList, 
 		int index = indexList[tid] + startPos;
 
 		__syncthreads();
-
 		valuesList[index] = val;
 	}
-
 	__syncthreads();
 
 	return;
 
 }
 
+//initializing the radix sort values and memory allocation functions
 void sortArray(int dig, int totalNums, int minIndex, int prevMin) {
 	int * histogram;
 	int * offset;
@@ -128,9 +168,11 @@ void sortArray(int dig, int totalNums, int minIndex, int prevMin) {
 	cudaMemcpy(d_histogram, histogram, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_offset, offset, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_offsetAfter, offsetAfter, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
-
+        
+        gettimeofday(&startTime, &Idunno);
 	radix_Sort<<<(totalNums+255)/256, 256>>>(d_valuesList, digit, dig, minIndex, totalNums, d_histogram, d_offset, d_offsetAfter);
-
+	totalRunningTime = totalRunningTime + report_running_time();
+	
 	// copy data back to host from the device
 	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
 	cudaMemcpy(histogram, d_histogram, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
@@ -172,8 +214,11 @@ void sortArray(int dig, int totalNums, int minIndex, int prevMin) {
 	// printf("SIZE: %d\n", totalNums);
 	// printf("DIGIT: %d\n", dig);
 	// printArrayU(indexArray, totalNumbers);
+ 	
+	gettimeofday(&startTime, &Idunno);
 	// kernel call to rearrange the numbers in valuesList
 	moveElements<<<(totalNums+255)/256,256>>>(d_valuesList, d_indexArray, minIndex, totalNums);
+	totalRunningTime = totalRunningTime + report_running_time();
 
 	// copy data back to host from the device
 	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
@@ -209,7 +254,7 @@ void sortArray(int dig, int totalNums, int minIndex, int prevMin) {
 			sortArray(dig/10, offset[i]-minInd, minInd+prevMin, minInd+prevMin);
 		}
 	}
-
+	
 	return;
 }
 
@@ -219,20 +264,32 @@ int main(int argc, char **argv) {
 	histogramSize = 10;
 
 	valuesList = (unsigned int *)malloc(sizeof(unsigned int)*totalNumbers);
+	valuesList2 = (unsigned int *)malloc(sizeof(unsigned int)*totalNumbers);
 
 	srand(1);	
 	// generate totalNumbers random numbers for valuesList
 	for (int i = 0; i < totalNumbers; i++) {
 		valuesList[i] = (int) rand()%MAX;
 	}
+	for (int i = 0; i < totalNumbers; i++)
+		valuesList2[i] = valuesList[i];
 
-	printf("VALUES BEFORE:\n");
-	printArrayU(valuesList, totalNumbers);
-
+//	printf("VALUES BEFORE:\n");
+//	printArrayU(valuesList, totalNumbers);
+	printf("GPU running time: \n");
 	sortArray(digit, totalNumbers, 0, 0);
+        printf("%f \n", totalRunningTime);
+  
+        printf("CPU running time:\n");
+  	gettimeofday(&startTime, &Idunno);
+  	seqSort(valuesList2, totalNumbers);
+  	printf("%f \n", report_running_time());
 
-	printf("VALUES AFTER:\n");
-	printArrayU(valuesList, totalNumbers);
+//  printf("SeqSort: \n");
+//  printArrayU(&valuesList2[0], totalNumbers);
+  
+//	printf("VALUES AFTER:\n");
+//	printArrayU(valuesList, totalNumbers);
 
 	return 0;
 }
