@@ -239,9 +239,9 @@ void sortArray(int dig, int totalNums, int minIndex) {
 	cudaMemcpy(d_valuesList, valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_indexArray, indexArray, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
 
-	printf("MIN INDEX: %d\n", minIndex);
-	printf("SIZE: %d\n", totalNums);
-	printArrayU(indexArray, totalNumbers);
+	// printf("MIN INDEX: %d\n", minIndex);
+	// printf("SIZE: %d\n", totalNums);
+	// printArrayU(indexArray, totalNumbers);
 	// kernel call to rearrange the numbers in valuesList
 	moveElements<<<(totalNums+255)/256,256>>>(d_valuesList, d_indexArray, minIndex, totalNums);
 
@@ -252,21 +252,21 @@ void sortArray(int dig, int totalNums, int minIndex) {
 	cudaFree(d_valuesList);
 	cudaFree(d_indexArray);
 
-	printf("HISTOGRAM:\n");
-	printArray(histogram, histogramSize);
+	// printf("HISTOGRAM:\n");
+	// printArray(histogram, histogramSize);
 
-	printf("OFFSET BEFORE:\n");
-	printArray(offset, histogramSize);
+	// printf("OFFSET BEFORE:\n");
+	// printArray(offset, histogramSize);
 
-	printf("OFFSET AFTER:\n");
-	printArray(offsetAfter, histogramSize);
+	// printf("OFFSET AFTER:\n");
+	// printArray(offsetAfter, histogramSize);
 
-	printf("VALUES AFTER:\n");
-	printArrayU(valuesList, totalNumbers);
+	// printf("VALUES AFTER:\n");
+	// printArrayU(valuesList, totalNumbers);
 
 	// call sortArray on each index of the histogram if that index value is greater than 1
 	for (int i = 0; i < 10; i++) {
-		if (histogram[i] > 1) {
+		if (histogram[i] > 1 && dig != 1) {
 			int minInd;
 			if (i == 0) {
 				minInd = 0;
@@ -275,7 +275,7 @@ void sortArray(int dig, int totalNums, int minIndex) {
 				minInd = offset[i-1];
 			} 
 
-			printf("RECURSION--------\n");
+			// printf("RECURSION--------\n");
 			sortArray(dig/10, offset[i]-minInd, minInd);
 			// radix_Sort<<<(totalNums+255)/256, 256>>>(d_valuesList, digit, 0, totalNumbers, d_histogram, d_offset, d_offsetAfter);
 		}
