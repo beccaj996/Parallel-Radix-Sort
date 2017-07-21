@@ -120,7 +120,7 @@ __global__ void radix_Sort(unsigned int* valuesList, int digitMax, int digitCurr
 	}
 	__syncthreads();
 
-	// find offset values
+	// find offset before values
 	mainOffset[0] = histogram[0];
 	mainOffsetChanged[0] = histogram[0];
 	for (int i = 1; i < 10; i++) {
@@ -166,42 +166,54 @@ int* d_offsetAfter;
 
 void sortArray(int dig, int totalNums, int minIndex) {
 
-	radix_Sort<<<(totalNums+255)/256, 256>>>(d_valuesList, 10, dig, minIndex, totalNums, d_histogram, d_offset, d_offsetAfter);
+	radix_Sort<<<(totalNums+255)/256, 256>>>(d_valuesList, digit, dig, minIndex, totalNums, d_histogram, d_offset, d_offsetAfter);
 	// radix_Sort<<<(totalNumbers+255)/256, 256>>>(d_valuesList, digit, 0, totalNumbers, d_histogram, d_offset, d_offsetAfter);
 
+	// copy data back to host from the device
 	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
-	cudaFree(d_valuesList);
-
 	cudaMemcpy(histogram, d_histogram, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
-	cudaFree(d_histogram);
-
 	cudaMemcpy(offset, d_offset, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
-	cudaFree(d_offset);
-
 	cudaMemcpy(offsetAfter, d_offsetAfter, sizeof(int)*histogramSize, cudaMemcpyDeviceToHost);
+	// free memory on device
+	cudaFree(d_valuesList);
+	cudaFree(d_histogram);
+	cudaFree(d_offset);
 	cudaFree(d_offsetAfter);
 
-	unsigned int *tempArray = (unsigned int*)malloc(sizeof(unsigned int)*totalNums);
-	unsigned int *d_tempArray;
+	// find offset after values
+	unsigned int *indexArray = (unsigned int*)malloc(sizeof(unsigned int)*totalNums);
+	unsigned int *d_indexArray;
 	for (int i = 0; i < totalNums; i++) {
-		tempArray[i] = offsetAfter[valuesList[i]/10] - 1;
-		offsetAfter[valuesList[i]/10]--;
+		// find the digit to sort by
+		int num = valuesList[i];
+		while (digit != dig) {
+			num = valuesList[i] / digit;
+			num *= digit;
+
+			digit /= 10;
+			num = valuesList[i] - num;
+		}
+
+		indexArray[i] = offsetAfter[num/dig] - 1;
+		offsetAfter[num/dig]--;
 	}
 
+	// copy main array and index array to device to rearrange values
 	cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
+	cudaMalloc((void **) &d_indexArray, sizeof(unsigned int)*totalNums);
+
 	cudaMemcpy(d_valuesList, valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_indexArray, indexArray, sizeof(unsigned int)*totalNums, cudaMemcpyHostToDevice);
 
-	cudaMalloc((void **) &d_tempArray, sizeof(unsigned int)*totalNums);
-	cudaMemcpy(d_tempArray, tempArray, sizeof(unsigned int)*totalNums, cudaMemcpyHostToDevice);
+	// kernel call to rearrange the numbers in valuesList
+	moveElements<<<(totalNums+255)/256,256>>>(d_valuesList, d_indexArray, minIndex, totalNums);
 
-	// kernel call
-	moveElements<<<(totalNums+255)/256,256>>>(d_valuesList, d_tempArray, 0, totalNums);
-
+	// copy data back to host from the device
 	cudaMemcpy(valuesList, d_valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyDeviceToHost);
+	cudaMemcpy(indexArray, d_indexArray, sizeof(unsigned int)*totalNums, cudaMemcpyDeviceToHost);
+	// free memory
 	cudaFree(d_valuesList);
-
-	cudaMemcpy(tempArray, d_tempArray, sizeof(unsigned int)*totalNums, cudaMemcpyDeviceToHost);
-	cudaFree(d_tempArray);
+	cudaFree(d_indexArray);
 
 
 
@@ -243,15 +255,13 @@ int main(int argc, char **argv) {
 	}
 
 	cudaMalloc((void **) &d_valuesList, sizeof(unsigned int)*totalNumbers);
-	cudaMemcpy(d_valuesList, valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
-
 	cudaMalloc((void**) &d_histogram, sizeof(int)*histogramSize);
-	cudaMemcpy(d_histogram, histogram, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
-
 	cudaMalloc((void**) &d_offset, sizeof(int)*histogramSize);
-	cudaMemcpy(d_offset, offset, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
-
 	cudaMalloc((void**) &d_offsetAfter, sizeof(int)*histogramSize);
+
+	cudaMemcpy(d_valuesList, valuesList, sizeof(unsigned int)*totalNumbers, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_histogram, histogram, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_offset, offset, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_offsetAfter, offsetAfter, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
 
 	// digit should be the number we divide valuesList[i] by to find a particular digit.
