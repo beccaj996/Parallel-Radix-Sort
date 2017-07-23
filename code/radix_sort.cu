@@ -205,9 +205,10 @@ int main(int argc, char **argv) {
 	totalNumbers = atoi(argv[1]);
 	// max bit size
 	if (atoi(argv[2]) > 31) {
-		MAX = 31;
+		MAX = (int)(1 << 31);
+	} else {
+		MAX = (int)(1 << atoi(argv[2]));
 	}
-	MAX = (int)(1 << atoi(argv[2]));
 	histogramSize = 10;
 
 	valuesList = (int *)malloc(sizeof(int)*totalNumbers);
