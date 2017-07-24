@@ -7,16 +7,11 @@ GPU Radix Sort Algorithm
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <sys/time.h>
 
 int * valuesList;							//holds values for parallel radix sort
 int * valuesList2;							//array holds values for sequential radix sort
 int* d_valuesList;							//holds values for device
 
-struct timezone Idunno;
-struct timeval startTime, endTime;
-
-float totalRunningTime = 0.00000;
 int totalNumbers;							//number of data values in array
 int histogramSize;
 int digit = 1000000000;						//largest possible place value for 32bit signed integers
