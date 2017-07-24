@@ -9,9 +9,6 @@ GPU Radix Sort Algorithm
 #include <math.h>
 #include <sys/time.h>
 
-//#define MAX 2147483647;								//largest 32bit signed integer
- // #define MAX 100;
-
 int * valuesList;							//holds values for parallel radix sort
 int * valuesList2;							//array holds values for sequential radix sort
 int* d_valuesList;							//holds values for device
@@ -22,11 +19,11 @@ struct timeval startTime, endTime;
 float totalRunningTime = 0.00000;
 int totalNumbers;							//number of data values in array
 int histogramSize;
-int digit = 1000000000;								//largest possible place value for 32bit signed integers
+int digit = 1000000000;						//largest possible place value for 32bit signed integers
 int MAX;
 
 
-//function to print out arrays
+// function to print out arrays
 void printArray(int * array, int size) {	
 	printf("[ ");
   	for (int i = 0; i < size; i++) {
@@ -34,16 +31,8 @@ void printArray(int * array, int size) {
   	printf("]\n");
 }
 
-// void printArrayU(int * array, int size) {	
-// 	printf("[ ");
-//   	for (int i = 0; i < size; i++) {
-//     	printf("%d ", array[i]);
-// 	}
-//   	printf("]\n");
-// }
-
-//main GPU kernel
-//counts the number of instances for a place value and stores in a histogram
+// main GPU kernel
+// counts the number of instances for a place value and stores in a histogram
 __global__ void radix_Sort(int* valuesList, int digitMax, int digitCurrent, int startPos, int arraySize, int* histogram) {
 
 	 int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -70,7 +59,7 @@ __global__ void radix_Sort(int* valuesList, int digitMax, int digitCurrent, int 
 
 }
 
-//rearragnes the array elements to correspond to the bucket they are placed in
+// rearragnes the array elements to correspond to the bucket they are placed in
 __global__ void moveElements(int *valuesList, int *indexList, int startPos, int arraySize) {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	tid += startPos;
@@ -89,7 +78,7 @@ __global__ void moveElements(int *valuesList, int *indexList, int startPos, int 
 
 }
 
-//initializing the radix sort values and memory allocation functions
+// initializing the radix sort values and memory allocation functions
 void sortArray(int dig, int totalNums, int minIndex, int prevMin, int placeValue) {
 	int * histogram;
 	int * offset;
@@ -114,7 +103,8 @@ void sortArray(int dig, int totalNums, int minIndex, int prevMin, int placeValue
 
 	cudaMemcpy(d_valuesList, valuesList, sizeof(int)*totalNumbers, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_histogram, histogram, sizeof(int)*histogramSize, cudaMemcpyHostToDevice);
-        
+    
+    // kernel call
 	radix_Sort<<<(totalNums+255)/256, 256>>>(d_valuesList, digit, dig, minIndex, totalNums, d_histogram);
 	
 	// copy data back to host from the device
@@ -125,7 +115,7 @@ void sortArray(int dig, int totalNums, int minIndex, int prevMin, int placeValue
 	cudaFree(d_valuesList);
 	cudaFree(d_histogram);
 
-	//find offset before values
+	// find offset before and after values
 	offset[0] = histogram[0];
 	offsetAfter[0] = histogram[0];
 	for (int i = 1; i < 10; i++) {
@@ -178,7 +168,6 @@ void sortArray(int dig, int totalNums, int minIndex, int prevMin, int placeValue
 	// printf("OFFSET AFTER:\n");
 	// printArray(offsetAfter, histogramSize);
 
-	// call sortArray on each index of the histogram if that index value is greater than 1
 	// if there is more than 1 value in any index of the histogram, then those numbers
 	// need to be sorted unless the digit is 1
 	for (int i = 0; i < 10; i++) {
