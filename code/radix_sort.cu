@@ -70,7 +70,6 @@ __global__ void moveElements(int *valuesList, int *indexList, int startPos, int 
 
 		__syncthreads();
 		valuesList[index] = val;
-		tid += blockDim.x * blockIdx.x;
 	}
 	__syncthreads();
 
