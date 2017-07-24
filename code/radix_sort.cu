@@ -9,7 +9,6 @@ GPU Radix Sort Algorithm
 #include <math.h>
 
 int * valuesList;							//holds values for parallel radix sort
-int * valuesList2;							//array holds values for sequential radix sort
 int* d_valuesList;							//holds values for device
 
 int totalNumbers;							//number of data values in array
